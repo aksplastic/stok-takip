@@ -957,6 +957,7 @@ document.querySelectorAll('.sayfa').forEach(s=>s.classList.remove('aktif'));
 document.querySelectorAll('.menu button').forEach(b=>b.classList.remove('aktif'));
 u('sayfa-'+sayfa).classList.add('aktif');
 btn.classList.add('aktif');
+{try{if(sb&&sbKullanici&&sbVeriHazir)supaSenkron()}catch(e){}}
 if(sayfa==='urunler')urunleriCiz();
 if(sayfa==='stokgiris'){stokGirisSecimiDoldur();sonStokGirisleriCiz()}
 if(sayfa==='siparis'){urunSecimiDoldur();siparisTarihGuncelle();sepetiCiz();sepetOzetiCiz()}
