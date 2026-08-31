@@ -1132,8 +1132,8 @@ if(!konteyner){u('musteri-liste').style.display='none'}
 // ---- TAHSILAT / ÖDEME ----
 let tahsilatAktifIndeks=-1;
 function cariBakiye(musteri){
-// borç: tüm satışlar (iptal ve iade hariç) toplamı
-const satis=siparisler.filter(s=>s.musteri===musteri&&s.durum!=='iptal'&&s.durum!=='iade');
+// borç: yalnızca satışı tamamlanan (tamamlandi) siparişler; rezerve'ler cariye işlenmez
+const satis=siparisler.filter(s=>s.musteri===musteri&&s.durum==='tamamlandi');
 const borc=satis.reduce((a,s)=>a+siparisTutarlari(s).toplam,0);
 const odeme=odemeler.filter(o=>o.musteri===musteri).reduce((a,o)=>a+(parseFloat(o.tutar)||0),0);
 // bugünün başlangıcı
@@ -2316,7 +2316,7 @@ const bit=new Date(s+'T23:59:59');
 if(bas>bit){alan.innerHTML='<div class="kart" style="color:#dc2626;font-size:13px">Başlangıç tarihi bitiş tarihinden sonra olamaz.</div>';return;}
 
 const satislar=siparisler.filter(sp=>{
-    if(sp.durum==='iptal')return false;
+    if(sp.durum!=='tamamlandi'&&sp.durum!=='iade')return false;
     if(sp.musteri!==mus)return false;
     const t=ekstreTarihParse(sp.tarih);
     if(!t)return false;
@@ -2709,8 +2709,8 @@ let filtre=siparisler;
 const tamamlanan=filtre.filter(s=>s.durum==='tamamlandi');
 const aktif=filtre.filter(s=>s.durum==='rezerve');
 
-// satışa dahil siparişler: iptal ve iade edilenler hariç (rezerve + tamamlanan)
-const satislar=filtre.filter(s=>s.durum!=='iptal'&&s.durum!=='iade');
+// satış cirosu: yalnızca satışı tamamlanan (tamamlandi) siparişler; rezerve'ler cariye/rapora işlenmez
+const satislar=filtre.filter(s=>s.durum==='tamamlandi');
 
 // el ile fiyatlı satış özeti (satırlarında manuel bayrağı olanlar)
 const elIleSatirlar=satislar.flatMap(s=>(s.satirlar||[]).filter(x=>x.manuel));
