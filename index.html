@@ -236,6 +236,7 @@ if(false&&!localStorage.getItem('elifSatisEklendi')){
 
 <div class="header">
 <h1>Stok Takip Sistemi</h1>
+<span id="supa-durum" style="font-size:12px;opacity:.95;margin-left:12px;padding:4px 10px;border-radius:999px"></span>
 <span id="yedek-durum" style="font-size:12px;opacity:.9;margin-left:12px"></span>
 <span id="saat" style="display:none"></span>
 <span id="oturum-alan" style="display:none;margin-left:auto;align-items:center"></span>
@@ -569,7 +570,7 @@ function veriKaydet(k,v){localStorage.setItem(k,JSON.stringify(v));if(sb&&sbKull
 var SB_URL='https://uqggqhbvzkrmuvlpgnph.supabase.co';		// Supabase: Project Settings > API > Project URL (ör. https://xxxx.supabase.co)
 var SB_ANON='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVxZ2dxaGJ2emtybXV2bHBnbnBoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgwMjg4OTgsImV4cCI6MjEwMzYwNDg5OH0.WJ6etSgCditJ36e0VcUSevJn_Wc03jQuOlkgUCoPer8';		// Supabase: Project Settings > API > anon public key
 var sb=null,sbKullanici=null,sbVeriHazir=false,sbGonderiliyor=false;
-var sbKuyruk={},sbSonGorulen={},sbSenkronTaymer=null;
+var sbKuyruk={},sbSonGorulen={},sbSenkronTaymer=null,sbKanal=null;
 var SUPA_ALANLAR=['urunler','siparisler','stokHareketleri','silinenSiparisler','odemeler','musteriler'];
 function alanGetir(k){if(k==='urunler')return urunler;if(k==='siparisler')return siparisler;if(k==='stokHareketleri')return stokHareketleri;if(k==='silinenSiparisler')return silinenSiparisler;if(k==='odemeler')return odemeler;if(k==='musteriler')return musteriler;return[]}
 function alanKur(k,v){const a=Array.isArray(v)?v:[];if(k==='urunler')urunler=a;else if(k==='siparisler')siparisler=a;else if(k==='stokHareketleri')stokHareketleri=a;else if(k==='silinenSiparisler')silinenSiparisler=a;else if(k==='odemeler')odemeler=a;else if(k==='musteriler')musteriler=a;localStorage.setItem(k,JSON.stringify(a))}
@@ -611,7 +612,7 @@ async function sunucudanYukle(){
   }catch(e){console.error('sunucudanYukle',e)}
 }
 async function supaSenkron(){
-  if(!sb||!sbKullanici||Object.keys(sbKuyruk).length)return;
+  if(!sb||!sbKullanici)return;
   try{
     const res=await sb.from('anahtarlar').select('anahtar,deger,guncelleme_tarihi');
     if(res.error)throw res.error;
@@ -624,7 +625,43 @@ async function supaSenkron(){
     if(degisti){siparisleriDuzelt();aktifSayfayiYenile()}
   }catch(e){}
 }
-function supaSenkronBaslat(){if(sbSenkronTaymer)clearInterval(sbSenkronTaymer);sbSenkronTaymer=setInterval(supaSenkron,15000);setTimeout(supaSenkron,3000)}
+function supaSenkronBaslat(){
+  if(sbSenkronTaymer)clearInterval(sbSenkronTaymer);
+  sbSenkronTaymer=setInterval(supaSenkron,5000);
+  setTimeout(supaSenkron,2000);
+  try{
+    if(sb){
+      sbKanal=sb.channel('anahtarlar-dinle');
+      sbKanal.on('postgres_changes',{event:'UPDATE',schema:'public',table:'anahtarlar'},function(payload){
+        var yeni=payload&&payload.new;if(!yeni||!yeni.anahtar)return;
+        if(SUPA_ALANLAR.indexOf(yeni.anahtar)<0)return;
+        if(sbSonGorulen[yeni.anahtar]===yeni.guncelleme_tarihi)return;
+        alanKur(yeni.anahtar,yeni.deger);
+        sbSonGorulen[yeni.anahtar]=yeni.guncelleme_tarihi;
+        siparisleriDuzelt();aktifSayfayiYenile();
+      }).subscribe(function(durum){
+        supaDurumGuncelle(durum==='SUBSCRIBED'?'canli':'beklemede');
+      });
+    }
+  }catch(e){}
+}
+function supaDurumGuncelle(durum){
+  var el=u('supa-durum');if(!el)return;
+  var renk,metin;
+  if(durum==='canli'){renk='#16a34a';metin='● Online (canlı)'}
+  else if(durum==='beklemede'){renk='#eab308';metin='● Bağlanıyor...'}
+  else if(durum==='hata'){renk='#dc2626';metin='● Bağlantı kesildi'}
+  else{renk='#94a3b8';metin='● Çevrimdışı'}
+  el.innerHTML='<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:'+renk+';margin-right:4px"></span>'+metin;
+  el.style.background='rgba(0,0,0,.06)';
+}
+document.addEventListener('visibilitychange',function(){
+  if(!document.hidden&&sb&&sbKullanici){
+    supaSenkron();
+    supaDurumGuncelle('beklemede');
+    setTimeout(function(){supaDurumGuncelle('canli')},2000);
+  }
+});
 function aktifSayfayiYenile(){
   const aktif=document.querySelector('.sayfa.aktif');if(!aktif)return;
   const adi=aktif.id.replace('sayfa-','');
@@ -682,7 +719,11 @@ function supaBaslat(){
   supaKhazir();
   if(!sb)return;
   sbKullanici={public:true};
-  sunucudanYukle().then(supaSenkronBaslat);
+  supaDurumGuncelle('beklemede');
+  sunucudanYukle().then(function(){
+    supaDurumGuncelle('canli');
+    supaSenkronBaslat();
+  }).catch(function(){supaDurumGuncelle('hata')});
 }
 
 // ---- YEDEK SİSTEMİ ----
