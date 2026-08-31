@@ -619,6 +619,7 @@ async function supaSenkron(){
     let degisti=false;
     (res.data||[]).forEach(function(x){
       if(SUPA_ALANLAR.indexOf(x.anahtar)<0)return;
+      if(sbKuyruk[x.anahtar]!==undefined)return;
       if(sbSonGorulen[x.anahtar]===x.guncelleme_tarihi)return;
       alanKur(x.anahtar,x.deger);sbSonGorulen[x.anahtar]=x.guncelleme_tarihi;degisti=true;
     });
@@ -635,6 +636,7 @@ function supaSenkronBaslat(){
       sbKanal.on('postgres_changes',{event:'UPDATE',schema:'public',table:'anahtarlar'},function(payload){
         var yeni=payload&&payload.new;if(!yeni||!yeni.anahtar)return;
         if(SUPA_ALANLAR.indexOf(yeni.anahtar)<0)return;
+        if(sbKuyruk[yeni.anahtar]!==undefined)return;
         if(sbSonGorulen[yeni.anahtar]===yeni.guncelleme_tarihi)return;
         alanKur(yeni.anahtar,yeni.deger);
         sbSonGorulen[yeni.anahtar]=yeni.guncelleme_tarihi;
