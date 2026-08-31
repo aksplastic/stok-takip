@@ -576,12 +576,40 @@ function alanGetir(k){if(k==='urunler')return urunler;if(k==='siparisler')return
 function alanKur(k,v){const a=Array.isArray(v)?v:[];if(k==='urunler')urunler=a;else if(k==='siparisler')siparisler=a;else if(k==='stokHareketleri')stokHareketleri=a;else if(k==='silinenSiparisler')silinenSiparisler=a;else if(k==='odemeler')odemeler=a;else if(k==='musteriler')musteriler=a;localStorage.setItem(k,JSON.stringify(a))}
 function supaKhazir(){if(!SB_URL||!SB_ANON)return;if(typeof supabase==='undefined')return;try{sb=supabase.createClient(SB_URL,SB_ANON)}catch(e){sb=null}}
 function supaKuyruk(k,v){sbKuyruk[k]=JSON.parse(JSON.stringify(v));if(!sbGonderiliyor)setTimeout(supaGonder,400)}
+function birlestir(sunucu,yerel){
+  if(!Array.isArray(yerel))return yerel;
+  if(!Array.isArray(sunucu))return yerel;
+  const birlesik=[];const gordukIds={};
+  sunucu.forEach(function(x){
+    if(x&&x.id!==undefined&&x.id!==null){if(gordukIds[x.id])return;gordukIds[x.id]=true;birlesik.push(x)}
+    else{const anahti=JSON.stringify(x);if(gordukIds[anahti]===true)return;gordukIds[anahti]=true;birlesik.push(x)}
+  });
+  yerel.forEach(function(x){
+    if(x&&x.id!==undefined&&x.id!==null){if(gordukIds[x.id])return;gordukIds[x.id]=true;birlesik.push(x)}
+    else{const anahti=JSON.stringify(x);if(gordukIds[anahti]===true)return;gordukIds[anahti]=true;birlesik.push(x)}
+  });
+  return birlesik;
+}
 async function supaGonder(){
   if(!sb||!sbKullanici||sbGonderiliyor)return;
   const ks=Object.keys(sbKuyruk);if(!ks.length)return;
   sbGonderiliyor=true;
   const bolum=ks.slice(0,10);
-  const govde=bolum.map(function(k){return{anahtar:k,deger:sbKuyruk[k],guncelleme_tarihi:new Date().toISOString()}});
+  let govde=null;
+  try{
+    const okuma=await sb.from('anahtarlar').select('anahtar,deger,guncelleme_tarihi').in('anahtar',bolum);
+    const varOlan={};(okuma.data||[]).forEach(function(x){varOlan[x.anahtar]=x});
+    govde=bolum.map(function(k){
+      const sunucu=varOlan[k];
+      let deger=JSON.parse(JSON.stringify(sbKuyruk[k]));
+      if(sunucu&&sunucu.guncelleme_tarihi&&sbSonGorulen[k]&&String(sunucu.guncelleme_tarihi)>String(sbSonGorulen[k])){
+        deger=birlestir(sunucu.deger,deger);
+      }
+      return{anahtar:k,deger:deger,guncelleme_tarihi:new Date().toISOString()};
+    });
+  }catch(e){
+    govde=bolum.map(function(k){return{anahtar:k,deger:sbKuyruk[k],guncelleme_tarihi:new Date().toISOString()}});
+  }
   try{
     const res=await sb.from('anahtarlar').upsert(govde,{onConflict:'anahtar'});
     if(res.error)throw res.error;
