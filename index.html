@@ -7,6 +7,8 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
+body.kilitli .menu button{pointer-events:auto;opacity:1}
+body.kilitli .btn,body.kilitli input:not([readonly]),body.kilitli select,body.kilitli textarea,body.kilitli button.btn-kucuk{pointer-events:none!important;opacity:.5!important}
 body{font-family:'Segoe UI',system-ui,-apple-system,'Helvetica Neue',Arial,sans-serif;background:linear-gradient(180deg,#f6f8fc 0,#eef2f8 100%);background-attachment:fixed;color:#1e293b;-webkit-font-smoothing:antialiased}
 ::selection{background:#bfdbfe;color:#1e3a8a}
 ::-webkit-scrollbar{width:10px;height:10px}
@@ -564,7 +566,7 @@ if(false&&!localStorage.getItem('elifSatisEklendi')){
 <script>
 const KDV_ORANI=0.20;
 function veriYukle(k){try{return JSON.parse(localStorage.getItem(k))||[]}catch(e){return[]}}
-function veriKaydet(k,v){localStorage.setItem(k,JSON.stringify(v));if(sb&&sbKullanici&&sbVeriHazir)supaKuyruk(k,v)}
+function veriKaydet(k,v){localStorage.setItem(k,JSON.stringify(v));if(sb&&sbKullanici&&sbVeriHazir){if(kilitYazmaEngelli())return;supaKuyruk(k,v);kilitAl()}}
 
 // ---- ÇOK KULLANICI (Supabase) ----
 var SB_URL='https://uqggqhbvzkrmuvlpgnph.supabase.co';		// Supabase: Project Settings > API > Project URL (ör. https://xxxx.supabase.co)
@@ -572,10 +574,56 @@ var SB_ANON='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZi
 var sb=null,sbKullanici=null,sbVeriHazir=false,sbGonderiliyor=false;
 var sbKuyruk={},sbSonGorulen={},sbSenkronTaymer=null,sbKanal=null;
 var SUPA_ALANLAR=['urunler','siparisler','stokHareketleri','silinenSiparisler','odemeler','musteriler'];
+function cihazIdGetir(){
+  let c=null;try{c=localStorage.getItem('stokCihazId')}catch(e){}
+  if(!c){c='c'+(Math.random().toString(36).slice(2,8))+Date.now().toString(36);try{localStorage.setItem('stokCihazId',c)}catch(e){}}
+  return c;
+}
+var sbKilitDolu=false,sbKilitKim='',sbKilitBitis=0,sbKilitUyariGosterildi=false,SB_KILIT_SURE=60000;
 function alanGetir(k){if(k==='urunler')return urunler;if(k==='siparisler')return siparisler;if(k==='stokHareketleri')return stokHareketleri;if(k==='silinenSiparisler')return silinenSiparisler;if(k==='odemeler')return odemeler;if(k==='musteriler')return musteriler;return[]}
 function alanKur(k,v){const a=Array.isArray(v)?v:[];if(k==='urunler')urunler=a;else if(k==='siparisler')siparisler=a;else if(k==='stokHareketleri')stokHareketleri=a;else if(k==='silinenSiparisler')silinenSiparisler=a;else if(k==='odemeler')odemeler=a;else if(k==='musteriler')musteriler=a;localStorage.setItem(k,JSON.stringify(a))}
 function supaKhazir(){if(!SB_URL||!SB_ANON)return;if(typeof supabase==='undefined')return;try{sb=supabase.createClient(SB_URL,SB_ANON)}catch(e){sb=null}}
 function supaKuyruk(k,v){sbKuyruk[k]=JSON.parse(JSON.stringify(v));if(!sbGonderiliyor)setTimeout(supaGonder,400)}
+function kilitYazmaEngelli(){
+  if(!sbKilitDolu||kilitBenim())return false;
+  kilitUyari();
+  return true;
+}
+function kilitBenim(){return sbKilitKim===cihazIdGetir()}
+function kilitAl(){
+  if(!sb||!sbKullanici)return;
+  const simdi=new Date().toISOString();const bitis=new Date(Date.now()+SB_KILIT_SURE).toISOString();
+  try{sb.from('anahtarlar').upsert({anahtar:'kilit',deger:{kim:cihazIdGetir(),alindi:simdi,bitis:bitis},guncelleme_tarihi:simdi},{onConflict:'anahtar'}).then()['catch'](function(){})}catch(e){}
+  sbKilitDolu=true;sbKilitKim=cihazIdGetir();sbKilitBitis=Date.now()+SB_KILIT_SURE;
+}
+function kilitAlYavas(){if(!sb||!sbKullanici)return;const simdi=new Date().toISOString();const bitis=new Date(Date.now()+SB_KILIT_SURE).toISOString();try{sb.from('anahtarlar').upsert({anahtar:'kilit',deger:{kim:cihazIdGetir(),alindi:simdi,bitis:bitis},guncelleme_tarihi:simdi},{onConflict:'anahtar'}).then()['catch'](function(){})}catch(e){}}function kilitUyari(){
+  if(sbKilitUyariGosterildi)return;sbKilitUyariGosterildi=true;
+  kilitBanner(true);
+  setTimeout(function(){sbKilitUyariGosterildi=false;kilitBanner(false)},4000);
+  alert('🔒 Diğer operatör şu anda veri giriyor.\nLütfen daha sonra tekrar deneyin.');
+}
+function kilitPasifle(){
+  try{document.body.classList.add('kilitli')}catch(e){}
+  kilitBanner(true);
+  clearTimeout(sbKilitTaymer);
+  sbKilitTaymer=setTimeout(kilitSerbest,SB_KILIT_SURE+1000);
+}
+function kilitSerbest(){
+  sbKilitDolu=false;sbKilitKim='';sbKilitBitis=0;
+  try{document.body.classList.remove('kilitli')}catch(e){}
+  kilitBanner(false);
+}
+function kilitBanner(goster){
+  try{
+    let b=document.getElementById('kilit-banner');
+    if(goster){
+      if(!b){b=document.createElement('div');b.id='kilit-banner';document.body.appendChild(b)}
+      b.innerHTML='🔒 Diğer operatör şu anda veri giriyor — işlem butonları geçici olarak kapalı. Menüde gezinebilirsiniz.';
+      b.style.cssText='position:fixed;top:0;left:0;right:0;z-index:99999;background:#dc2626;color:#fff;font-weight:700;font-size:13px;text-align:center;padding:10px 12px;box-shadow:0 4px 14px rgba(0,0,0,.25)';
+    }else if(b){b.remove()}
+  }catch(e){}
+}
+var sbKilitTaymer=null;
 function birlestir(sunucu,yerel){
   if(!Array.isArray(yerel))return yerel;
   if(!Array.isArray(sunucu))return yerel;
@@ -646,12 +694,21 @@ async function supaSenkron(){
     if(res.error)throw res.error;
     let degisti=false;
     (res.data||[]).forEach(function(x){
+      if(x.anahtar==='kilit'){kilitDurumOku(x);return;}
       if(SUPA_ALANLAR.indexOf(x.anahtar)<0)return;
       if(sbKuyruk[x.anahtar]!==undefined)return;
       if(sbSonGorulen[x.anahtar]===x.guncelleme_tarihi)return;
       alanKur(x.anahtar,x.deger);sbSonGorulen[x.anahtar]=x.guncelleme_tarihi;degisti=true;
     });
     if(degisti){siparisleriDuzelt();aktifSayfayiYenile()}
+  }catch(e){}
+}
+function kilitDurumOku(x){
+  try{
+    const d=x.deger||{};const bitis=new Date(d.bitis).getTime();
+    if(Number.isFinite(bitis)&&bitis>Date.now()){
+      if(d.kim===cihazIdGetir()){/* kendi kilidi */}else{sbKilitDolu=true;sbKilitKim=d.kim;sbKilitBitis=bitis;if(sbKilitDolu)kilitPasifle()}
+    }else{if(sbKilitDolu&&d.kim!==cihazIdGetir()){/* kilit geçti, serbest */kilitSerbest()}}
   }catch(e){}
 }
 function supaSenkronBaslat(){
