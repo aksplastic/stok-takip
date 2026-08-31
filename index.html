@@ -602,7 +602,7 @@ async function supaGonder(){
     govde=bolum.map(function(k){
       const sunucu=varOlan[k];
       let deger=JSON.parse(JSON.stringify(sbKuyruk[k]));
-      if(sunucu&&sunucu.guncelleme_tarihi&&sbSonGorulen[k]&&String(sunucu.guncelleme_tarihi)>String(sbSonGorulen[k])){
+      if(k!=='urunler'&&sunucu&&sunucu.guncelleme_tarihi&&sbSonGorulen[k]&&String(sunucu.guncelleme_tarihi)>String(sbSonGorulen[k])){
         deger=birlestir(sunucu.deger,deger);
       }
       return{anahtar:k,deger:deger,guncelleme_tarihi:new Date().toISOString()};
