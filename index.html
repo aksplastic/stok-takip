@@ -645,15 +645,8 @@ async function supaGonder(){
   const bolum=ks.slice(0,10);
   let govde=null;
   try{
-    const okuma=await sb.from('anahtarlar').select('anahtar,deger,guncelleme_tarihi').in('anahtar',bolum);
-    const varOlan={};(okuma.data||[]).forEach(function(x){varOlan[x.anahtar]=x});
     govde=bolum.map(function(k){
-      const sunucu=varOlan[k];
-      let deger=JSON.parse(JSON.stringify(sbKuyruk[k]));
-      if(k!=='urunler'&&sunucu&&sunucu.guncelleme_tarihi&&sbSonGorulen[k]&&String(sunucu.guncelleme_tarihi)>String(sbSonGorulen[k])){
-        deger=birlestir(sunucu.deger,deger);
-      }
-      return{anahtar:k,deger:deger,guncelleme_tarihi:new Date().toISOString()};
+      return{anahtar:k,deger:JSON.parse(JSON.stringify(sbKuyruk[k])),guncelleme_tarihi:new Date().toISOString()};
     });
   }catch(e){
     govde=bolum.map(function(k){return{anahtar:k,deger:sbKuyruk[k],guncelleme_tarihi:new Date().toISOString()}});
