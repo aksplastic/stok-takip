@@ -604,22 +604,43 @@ function kilitKalpBaslat(){
   sbKilitKalpSayac=setInterval(kilitYaz,SB_KILIT_KALPATISI);
 }
 function kilitBirak(){
-  if(!sb||!sbKullanici)return;
   clearInterval(sbKilitKalpSayac);sbKilitKalpSayac=null;
-  try{sb.from('anahtarlar').upsert({anahtar:'kilit',deger:{kim:'',alindi:null,bitis:new Date().toISOString()},guncelleme_tarihi:new Date().toISOString()},{onConflict:'anahtar'}).then()['catch'](function(){})}catch(e){}
   sbKilitKendiKilit=false;
-}
-function kilitSes(){
   try{
-    var ctx=new (window.AudioContext||window.webkitAudioContext)();
-    var melodiler=[[880,0],[1174.7,130]];
+    const serbest={anahtar:'kilit',deger:{kim:'',alindi:null,bitis:new Date().toISOString()},guncelleme_tarihi:new Date().toISOString()};
+    if(sb&&sbKullanici){
+      sb.from('anahtarlar').upsert(serbest,{onConflict:'anahtar'}).then()['catch'](function(){});
+      try{
+        fetch(SB_URL+'/rest/v1/anahtarlar?on_conflict=anahtar',{
+          method:'POST',keepalive:true,headers:{'apikey':SB_ANON,'Authorization':'Bearer '+SB_ANON,'Content-Type':'application/json','Prefer':'resolution=merge-duplicates'},
+          body:JSON.stringify([serbest])
+        })['catch'](function(){});
+      }catch(e2){}
+    }
+  }catch(e){}
+}
+var sbSesCtx=null;
+function kilitSesHazirla(){
+  try{
+    if(!sbSesCtx)sbSesCtx=new (window.AudioContext||window.webkitAudioContext)();
+    if(sbSesCtx&&sbSesCtx.state==='suspended')sbSesCtx.resume();
+  }catch(e){}
+}
+document.addEventListener('pointerdown',function(){kilitSesHazirla()},{once:true,capture:true});
+function kilitSes(){
+  kilitSesHazirla();
+  try{if(navigator&&navigator.vibrate)navigator.vibrate([180,70,180])}catch(e){}
+  try{
+    var ctx=sbSesCtx;if(!ctx)return;
+    if(ctx.state==='suspended')ctx.resume();
+    var melodiler=[[880,0],[1174.7,140]];
     melodiler.forEach(function(nota){
       var o=ctx.createOscillator(),g=ctx.createGain();
       o.type='sine';o.frequency.value=nota[0];
       g.gain.setValueAtTime(0,ctx.currentTime+nota[1]/1000);
-      g.gain.exponentialRampToValueAtTime(0.4,ctx.currentTime+nota[1]/1000+0.02);
-      g.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+nota[1]/1000+0.45);
-      o.connect(g);g.connect(ctx.destination);o.start(ctx.currentTime+nota[1]/1000);o.stop(ctx.currentTime+nota[1]/1000+0.5);
+      g.gain.exponentialRampToValueAtTime(0.5,ctx.currentTime+nota[1]/1000+0.02);
+      g.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+nota[1]/1000+0.5);
+      o.connect(g);g.connect(ctx.destination);o.start(ctx.currentTime+nota[1]/1000);o.stop(ctx.currentTime+nota[1]/1000+0.55);
     });
   }catch(e){}
 }
