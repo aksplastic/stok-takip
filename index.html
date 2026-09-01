@@ -566,7 +566,7 @@ if(false&&!localStorage.getItem('elifSatisEklendi')){
 <script>
 const KDV_ORANI=0.20;
 function veriYukle(k){try{return JSON.parse(localStorage.getItem(k))||[]}catch(e){return[]}}
-function veriKaydet(k,v){localStorage.setItem(k,JSON.stringify(v));if(sb&&sbKullanici&&sbVeriHazir){if(kilitYazmaEngelli())return;supaKuyruk(k,v);kilitAl()}}
+function veriKaydet(k,v){localStorage.setItem(k,JSON.stringify(v));if(sb&&sbKullanici&&sbVeriHazir){supaKuyruk(k,v);kilitAl()}}
 
 // ---- ÇOK KULLANICI (Supabase) ----
 var SB_URL='https://uqggqhbvzkrmuvlpgnph.supabase.co';		// Supabase: Project Settings > API > Project URL (ör. https://xxxx.supabase.co)
